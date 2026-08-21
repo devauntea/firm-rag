@@ -1,0 +1,21 @@
+services:
+ db:
+  image: pgvector/pgvector:pg17
+  container_name: firmrag-db
+  restart: unless-stopped
+  environment:
+   POSTGRES_USER: firmrag
+   POSTGRES_PASSWORD: firmrag_dev
+   POSTGRES_DB: firmrag
+  ports:
+   - "5433:5432"
+  volumes:
+   - pgdata:/var/lib/postgresql/data
+  healthcheck:
+   test: ["CMD-SHELL", "pg_isready -U firmrag -d firmrag"]
+   interval: 5s
+   timeout: 5s
+   retries: 10
+   
+volumes:
+  pgdata:
