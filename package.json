@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "ingest": "DOTENV_CONFIG_PATH=.env.local tsx scripts/ingest.ts"
   },
   "dependencies": {
     "next": "16.3.1",
