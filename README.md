@@ -1,4 +1,4 @@
-# firm-rag
+# firm-RAG
 A permission-aware legal document Q&A system
 
 ## Day 1: the database
