@@ -10,7 +10,9 @@
     "ingest": "DOTENV_CONFIG_PATH=.env.local tsx scripts/ingest.ts",
     "embed-chunks": "DOTENV_CONFIG_PATH=.env.local tsx scripts/embed-chunks.ts",
     "bench": "DOTENV_CONFIG_PATH=.env.local tsx scripts/bench.ts",
-    "query": "DOTENV_CONFIG_PATH=.env.local tsx scripts/query.ts"
+    "llm-bench": "DOTENV_CONFIG_PATH=.env.local tsx scripts/llm-bench.ts",
+    "query": "DOTENV_CONFIG_PATH=.env.local tsx scripts/query.ts",
+    "answer": "DOTENV_CONFIG_PATH=.env.local tsx scripts/answer.ts"
   },
   "dependencies": {
     "next": "16.3.1",

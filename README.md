@@ -104,3 +104,53 @@ got clean text back, I recorded exactly how that document was recovered,
 not just that it was recovered, because a real law firm would want to
 know a document was OCR'd and not directly extracted, since either
 approach can carry different kinds of small transcription errors.
+
+## Day 3: inference and citation
+
+Serving qwen2.5:7b locally through Ollama, which wraps llama.cpp and
+runs on Apple Metal on this machine (an M4 Mac, no CUDA, no discrete
+GPU). Measured real throughput instead of trusting the model card:
+about 21.7-21.8 tok/s once the model is warm, versus a one-time model
+load of roughly 4.8 seconds on the first request that has nothing to
+do with steady-state generation speed. Conflating those two would give
+a misleadingly pessimistic number.
+
+Built a generation layer on top of Day 2's retrieval that forces every
+factual claim in an answer to carry a citation marker back to a
+specific numbered source chunk, and wrote a mechanical verifier that
+flags any citation number the model invents that wasn't actually in
+the retrieved set. Across five real end-to-end test runs today, the
+verifier confirmed zero invalid citations, including on two runs where
+the model declined to answer entirely.
+
+This directly targets the two failures found on Day 2. On the Coinbase
+question, retrieval still returned a blended pool of chunks from both
+Bielski and Suski, exactly as before, but the model's answer only
+cited the Bielski sources for the Bielski-specific claim - it happened
+to disambiguate correctly, though that's not a guarantee retrieval
+itself doesn't provide, which is exactly why the citations matter: so
+it can be checked, not just trusted.
+
+On the Texas Supreme Court question, the model refused twice rather
+than confidently misattributing the dissent as a holding, which is the
+safer failure mode. I tested two phrasings to understand why: the
+second, vaguer phrasing pulled in chunks from a completely unrelated
+case (a different matter's document that has nothing to do with this
+one) into the retrieved set, which suggests the refusal may come from
+noisy, off-topic retrieved context rather than the model precisely
+reasoning about which court actually held what. I can't fully tell
+those two explanations apart from the outside, but either way the
+system declined instead of fabricating, which is the property that
+actually matters.
+
+Tested the refusal instruction directly with a question entirely
+outside the corpus (trademark law, which nothing in these eleven
+documents touches). It refused cleanly, citing nothing, which the
+verifier confirmed.
+
+Did not run vLLM or SGLang hands-on - both are CUDA-first production
+serving frameworks and I don't have NVIDIA hardware. Read about
+PagedAttention and understand conceptually why it matters for serving
+many concurrent users efficiently on a GPU cluster, which is the real
+production story for a company like Firmly, distinct from the
+single-user local setup built this week.
