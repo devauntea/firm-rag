@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "ingest": "DOTENV_CONFIG_PATH=.env.local tsx scripts/ingest.ts"
+    "ingest": "DOTENV_CONFIG_PATH=.env.local tsx scripts/ingest.ts",
+    "embed-chunks": "DOTENV_CONFIG_PATH=.env.local tsx scripts/embed-chunks.ts",
+    "bench": "DOTENV_CONFIG_PATH=.env.local tsx scripts/bench.ts",
+    "query": "DOTENV_CONFIG_PATH=.env.local tsx scripts/query.ts"
   },
   "dependencies": {
     "next": "16.3.1",

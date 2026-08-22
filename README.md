@@ -52,3 +52,55 @@ optimization called an index. With only a handful of documents, search
 is already fast, so there's nothing to speed up yet. Adding it now
 would mean guessing at a benefit I can't measure. That's tomorrow's
 job, once there's a real slow query to compare against.
+
+## Day 2: chunking and retrieval
+
+Built a chunker that tries several ways to split text, from most
+natural to least: paragraph breaks first, then plain line breaks,
+then sentences, then raw characters as a last resort. It falls back
+only when it has to. This mattered because my extracted text has no
+real paragraph breaks at all (the PDF reader outputs one line per
+line of the original page, not per paragraph), and three of my
+contracts had a browser's page number and timestamp baked into the
+text from being printed to PDF. Both got handled: the missing
+paragraphs by falling back to line splits, the print artifacts by
+being filtered out before splitting even starts.
+
+All 11 documents are now chunked and embedded, about 1200 characters
+per chunk with a 150-character overlap so a sentence that lands on a
+chunk boundary still appears whole in at least one side of the cut.
+
+I measured retrieval speed before and after adding a proper search
+index (HNSW), and the honest result is: it made no real difference
+yet. I checked why instead of assuming: Postgres's own query planner
+computes that scanning all 626 chunks directly is actually cheaper
+than using the index at this size (cost 106 vs. 762). The index is
+correctly built and ready, it's just not useful until the collection
+is much bigger, which Postgres decides automatically without needing
+any code from me.
+
+I ran real questions against my own data and found two specific ways
+the search can mislead someone. First, a vague question about "Coinbase's
+arbitration argument" pulls back chunks from two different Supreme Court
+cases with different outcomes, at almost identical relevance scores, so
+an answer could easily blend two unrelated holdings into one wrong
+statement. Second, and worse: asking "what did the Texas Supreme Court
+hold" returns a dissenting opinion (from a case the court didn't even
+agree to hear) ranked above the actual controlling decision, because the
+dissent's text literally contains the words "Supreme Court of Texas" and
+the real holding's text doesn't say that as directly. Search can tell
+you something is topically related. It can't tell you something is
+legally authoritative. Fixing that is next week's problem, not this
+week's.
+
+Fixed the one document that was still unreadable since Day 1: a scanned
+opinion with no real text in it. Installed Tesseract (an OCR tool),
+turned the scan into images, and had Tesseract read the text off those
+images. Hit a real bug along the way: Tesseract couldn't read files
+sitting in /tmp on this Mac (likely a macOS privacy restriction), which
+I only figured out by testing the exact same file from two different
+folders and watching one work and one fail. Once I worked around it and
+got clean text back, I recorded exactly how that document was recovered,
+not just that it was recovered, because a real law firm would want to
+know a document was OCR'd and not directly extracted, since either
+approach can carry different kinds of small transcription errors.
