@@ -16,6 +16,23 @@ services:
    interval: 5s
    timeout: 5s
    retries: 10
-   
+
+ app:
+  build: .
+  container_name: firmrag-app
+  restart: unless-stopped
+  ports:
+    - "3000:3000"
+  environment:
+    DATABASE_URL: postgresql://firmrag:firmrag_dev@db:5432/firmrag
+    OLLAMA_URL: http://host.docker.internal:11434
+    EMBED_MODEL: nomic-embed-text
+    CHAT_MODEL: qwen2.5:7b
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  depends_on:
+    db:
+      condition: service_healthy
+
 volumes:
   pgdata:

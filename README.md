@@ -154,3 +154,78 @@ PagedAttention and understand conceptually why it matters for serving
 many concurrent users efficiently on a GPU cluster, which is the real
 production story for a company like Firmly, distinct from the
 single-user local setup built this week.
+
+## Day 4: containers and deployment (in progress)
+
+**What I built:** up to now, everything I built (search, chunking,
+the AI answering) only existed as scripts I ran myself from a
+terminal. Today I turned that into an actual web address
+(`POST /api/answer`) that anything can call, and packaged the whole
+app into a Docker container so it can run the same way on any
+machine, not just mine.
+
+**One helper function, two callers:** before wiring up the web
+address, I pulled the "ask a question, get a cited answer" logic out
+of my terminal script and put it in its own file, so both the
+terminal script and the new web address call the exact same code
+instead of two separate copies that could quietly drift apart and
+disagree with each other over time.
+
+**Building a small container instead of a huge one:** a naive way to
+package a web app copies everything, including all the tools used to
+build it, into the shipped container. I turned on a Next.js setting
+that instead figures out exactly which files the app actually needs
+to run, and only ships those. My container ended up around 80MB.
+Skipping that setting would have shipped several times that, for no
+benefit, since none of that extra weight would ever actually run.
+
+**The model server stays outside the container, on purpose:** my AI
+model runs through Apple's chip-level acceleration (Metal), which
+doesn't work the same way inside a Linux container the way it does on
+a real graphics card. So I left it running on my Mac directly and had
+the container reach out to it, instead of trying to squeeze it inside
+too. This also happens to match how a real company would do it: the
+model server is its own separate thing that doesn't get rebuilt every
+time the app's code changes.
+
+**Two addresses that mean different things depending on where you
+are:** my container needs to reach two other things: the database,
+and the AI model. Locally, both live at `localhost` with different
+port numbers. Inside a container, `localhost` only means "this
+container," so I had to give the app two different addresses instead:
+the database's container name (containers on the same setup can find
+each other by name), and a special address Docker provides
+specifically for "reach out to whatever's running on the actual
+computer, not in a container."
+
+**A debugging story worth remembering:** I stopped the database on
+purpose to see what would happen, and the app said it worked, giving
+back a real, correct answer. That was wrong, and I only caught it by
+checking twice: my container list only showed the database running,
+not the app, and something already had the app's port claimed. It
+turned out an old copy of the app, started days earlier directly on
+my Mac (not in a container) and never closed, was still quietly
+answering every request. The real containerized app had never
+actually started at all - it just sat there, created but never
+running, because the port it wanted was already taken. The lesson:
+a test that "passes" is only proof of something if you're sure what
+actually answered it.
+
+**A second real bug, found the same way:** once the container was
+actually running, I stopped the database again to test failure
+properly this time. The app did fail, but a caller hitting it would
+have gotten back nothing at all: an error with a completely empty
+message, no explanation. I added a step that catches the failure,
+writes the real, detailed reason somewhere only I can see (the
+container's own logs), and gives the person calling the app a short,
+honest message instead: "search is temporarily unavailable." Nothing
+scary, nothing empty, and nothing that reveals internal details to
+someone who shouldn't see them.
+
+**What today actually taught me:** a green checkmark isn't proof of
+anything by itself. Twice today, something looked like it worked, and
+twice the real explanation was hiding one layer down - a leftover
+process answering in place of the real one, and a real failure
+returning no information at all. Both times, the fix was the same
+habit: don't trust the first signal, go look at what's actually
+running and what's actually being logged.

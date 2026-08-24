@@ -35,6 +35,5 @@ async function main(){
 }
 //DROP TABLE smoke;. Keeping test scaffolding separate from real data is a habit that pays off constantly.
 //$ psql "postgres://firmrag:firmrag_dev@localhost:5433/firmrag" -c "DROP TABLE smoke;"
-
-DROP TABLE
+//DROP TABLE
 main()

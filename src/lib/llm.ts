@@ -9,7 +9,7 @@ export type ChatResult = {
     evalDurationNs: number
     promptEvalCount: number
     promptEvalDurationNs: number
-    tokenCount: number
+    loadDurationNs: number
 }
 
 export async function chat(messages: ChatMessage[]): Promise<ChatResult> {
