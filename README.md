@@ -155,7 +155,7 @@ many concurrent users efficiently on a GPU cluster, which is the real
 production story for a company like Firmly, distinct from the
 single-user local setup built this week.
 
-## Day 4: containers and deployment (in progress)
+## Day 4: containers and deployment
 
 **What I built:** up to now, everything I built (search, chunking,
 the AI answering) only existed as scripts I ran myself from a
@@ -229,3 +229,29 @@ process answering in place of the real one, and a real failure
 returning no information at all. Both times, the fix was the same
 habit: don't trust the first signal, go look at what's actually
 running and what's actually being logged.
+
+**What's still missing before this could actually go live:** I can
+name these precisely rather than pretend today's setup is finished.
+
+- The database password is still sitting in plain text in a compose
+  file I've been committing to git all week. A real deployment pulls
+  that from a secret manager, injected only at the moment it's
+  needed, never written down anywhere.
+- There's no encryption and no reverse proxy in front of the app -
+  I'm hitting plain http://localhost:3000 directly. A real deployment
+  sits something in front that handles https and forwards traffic in.
+- The container only exists on my own laptop right now. Nothing
+  builds it automatically when code changes, and nothing stores a
+  finished, tagged copy anywhere else. A real deployment builds the
+  image automatically on every change, saves it somewhere central,
+  and deploys a specific known version, rather than whatever happens
+  to be sitting on one person's machine.
+- Keeping the AI model outside the container isn't just a workaround
+  for my laptop's Apple chip - it's also how a bigger, real version of
+  this would work. The model would run as its own separate,
+  independently-scaled service that the app calls over the network,
+  the same shape as today, just pointed at a real server instead of
+  my Mac.
+
+Naming these gaps specifically, and knowing exactly what closes each
+one, matters more than pretending they don't exist.
