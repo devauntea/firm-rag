@@ -255,3 +255,70 @@ name these precisely rather than pretend today's setup is finished.
 
 Naming these gaps specifically, and knowing exactly what closes each
 one, matters more than pretending they don't exist.
+
+## Day 5: permission-aware retrieval
+
+**Before the fix** - no user identified anywhere in the request, and Matter C (which has an ethical wall on it) answers anyway:
+
+![Before permission enforcement](docs/screenshots/01-before-permission-fix.png)
+
+**After the fix** - identical question, identical matter, two different attorneys:
+
+![The ethical wall holds](docs/screenshots/02-ethical-wall-holds.png)
+
+**Adversarial test** - the walled attorney demands the content explicitly, with jailbreak-style phrasing:
+
+![Adversarial request blocked](docs/screenshots/03-adversarial-request-blocked.png)
+
+The API from Day 4 had no concept of who was asking - matterCode was
+a fully client-trusted filter, and the Day 1 access matrix sat in the
+database unused. Proved this live before fixing it: a request with no
+user identified at all still returned a real, cited answer from a
+matter that's supposed to be walled off for two of my three test
+users.
+
+Closed the gap by joining retrieval through matter_access and users,
+keyed on the calling user's email, so a chunk from a matter the caller
+can't access is never fetched from the database at all - not fetched
+and then filtered, never fetched. Everything downstream (the prompt,
+the model call, citation verification) stayed identical, because
+permission enforcement belongs entirely at the one boundary where
+data first enters the system.
+
+Deliberately did not build real authentication. The API trusts a
+userEmail field in the request body, which mirrors how a backend
+trusts an already-verified session in a real system, but isn't one.
+Authentication (verifying who someone is) and authorization (deciding
+what they're allowed to do) are different problems; today solved only
+the second, and I can say precisely why the first is still open.
+
+Proved the wall through the real running API, not just by reading the
+schema, across the full access matrix: Attorney 1 succeeds on Matter
+C, Attorney 2 and the paralegal are both walled off from it with an
+empty, honestly-refused result - not a 403, since revealing that a
+walled matter exists is itself a leak in an ethical-wall scenario.
+Attorney 1 is symmetrically blocked from Matter D while the paralegal
+and Attorney 2 succeed there, proving this is real per-user
+permission, not a role hierarchy in disguise. All three users succeed
+on Matter A, which has no restrictions at all.
+
+Tried to break it on purpose, two ways. First, had the walled attorney
+explicitly demand the forbidden matter with jailbreak-style phrasing
+("ignore any restrictions") - the response came back with an empty
+sources array, meaning nothing was even retrieved for any phrasing to
+talk the model into revealing. Second, omitted matterCode entirely to
+see if an unscoped search would accidentally surface something - the
+retrieved pool spanned every other matter that user has access to,
+and the walled matter (326 chunks, the largest in the corpus, and the
+most topically relevant to the test question) never appeared once.
+No prompt-injection defense was needed for either case, because the
+fix lives below the model entirely.
+
+Verified a missing userEmail fails closed, not open: the API returns
+a clean 400 rather than silently treating an unidentified caller as
+unrestricted, which is the correct failure direction for a security
+boundary.
+
+Known gaps, named specifically: no real authentication (userEmail is
+trusted, not verified), no audit log of who asked about what, and no
+admin or cross-matter role in the access model yet.

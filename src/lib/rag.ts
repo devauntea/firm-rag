@@ -4,7 +4,7 @@ import { chat } from './llm'
 import { buildSystemPrompt, type Source } from './prompt'
 import { verifyCitations } from './verify-citations'
 
-export async function answerQuestion(question: string, matterCode: string | null = null) {
+export async function answerQuestion(question: string, userEmail: string, matterCode: string | null = null) {
     const q = await embed(question, 'search_query')
     const vec = toVector(q)
 
@@ -13,11 +13,14 @@ export async function answerQuestion(question: string, matterCode: string | null
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         JOIN matters m ON m.id = c.matter_id
-        WHERE ($2::text IS NULL OR m.code = $2)
+        JOIN matter_access ma on ma.matter_id = m.id
+        JOIN users u on u.id = ma.user_id
+        WHERE u.email = $2
+          AND ($3::text IS NULL OR m.code = $3)
         ORDER BY c.embedding <=> $1::vector
         LIMIT 6`,
-        [vec, matterCode],
-    )
+        [vec, userEmail, matterCode],
+    ) //If u.email doesn't match a user with a matter_access row for that chunk's matter, the join simply produces no row for that chunk at all
 
     const sources: Source[] = rows.map((r, i) => ({ n: i + 1, filename: r.filename, content: r.content }))
 
