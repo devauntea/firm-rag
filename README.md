@@ -1,6 +1,52 @@
 # firm-RAG
 A permission-aware legal document Q&A system
 
+## How this works
+
+A lawyer or paralegal asks a question through `POST /api/answer`, identified by
+`userEmail`. Retrieval never sees the whole corpus - it's scoped, in the SQL
+query itself, to only the matters that specific user has been granted access
+to. The model then answers using only what was retrieved, with every claim
+required to carry a citation back to a specific chunk, and can trigger one
+additional, identically-scoped search of its own if the first pass wasn't
+enough - bounded to two rounds, and unable to reach anything the caller
+couldn't already see.
+
+The one decision worth defending hardest: **permissions are enforced at the
+retrieval query, never left to the model to respect.** A chunk from a matter
+the caller can't access is never fetched from the database in the first
+place - not fetched and then filtered, never fetched. That's true whether the
+search came from the initial request or from the model's own tool call
+mid-answer.
+
+```mermaid
+flowchart TD
+    client["Client<br/>(curl / future UI)"]
+    api["POST /api/answer<br/>(Next.js, Docker)"]
+    rag["answerQuestion()<br/>src/lib/rag.ts"]
+    retrieve["Permission-checked retrieval<br/>chunks ⋈ documents ⋈ matters ⋈ matter_access ⋈ users<br/>WHERE u.email = caller"]
+    db[("Postgres + pgvector<br/>(Docker)")]
+    model["Qwen 2.5 7B<br/>(Ollama, host, Metal)"]
+    tool["search_documents tool<br/>same retrieval query,<br/>capped at 2 rounds"]
+    verify["Citation verifier<br/>rejects invented sources"]
+
+    client -->|"question + userEmail"| api
+    api --> rag
+    rag --> retrieve
+    retrieve --> db
+    rag -->|"sources + citation rules"| model
+    model -->|"may call"| tool
+    tool --> retrieve
+    model --> verify
+    verify -->|"answer + sources + citationCheck"| api
+    api --> client
+
+    style retrieve fill:#8C2F39,color:#fff
+    style db fill:#2E5C8A,color:#fff
+```
+
+**Day-by-day build log below** - the reasoning and the mistakes, in order.
+
 ## Day 1: the database
 
 **What I built:** Postgres running in Docker, with an extension called
@@ -322,3 +368,55 @@ boundary.
 Known gaps, named specifically: no real authentication (userEmail is
 trusted, not verified), no audit log of who asked about what, and no
 admin or cross-matter role in the access model yet.
+
+## Day 6: sandboxed tool use and polish
+
+Gave the model a real tool - it can trigger one additional, permission-
+scoped search mid-answer instead of working only from the initial
+retrieval pass. The actual work was building the fence around that
+decision before building the decision itself: a tool call's arguments
+are untrusted input the same way a request body is, and everything I
+already knew about not trusting client input applied directly.
+
+Four rules, enforced in code: the Day 5 permission join applies
+unconditionally to tool-triggered searches regardless of what matter
+the model requests; matterCode is allowlisted against {A,B,C,D} rather
+than merely typed; tool calls are capped at two rounds by a hard loop
+bound; and every tool call runs through the exact same permission-
+checked retrieval function as the initial search - one function, two
+callers.
+
+Attacked it with three different phrasings, from a vague hint to
+explicitly naming the tool and the forbidden matter code. In every
+case inside the real system, the model answered directly from the
+already-scoped initial retrieval rather than reaching for the tool at
+all - the wall held, but I hadn't actually caught the model in the
+act of requesting the forbidden matter through a tool call. Rather
+than call that good enough, I isolated the tool trigger outside the
+full system prompt and confirmed directly: the model will readily
+call the tool with matterCode "C" when asked plainly. So the reason
+it didn't happen inside the real flow isn't that the model can't -
+it's that the system prompt's "use only these sources" instruction
+happens to discourage it for this kind of question. That's a genuine,
+useful finding, not a loose end: the security guarantee comes from
+the tool executor's unconditional permission join, proven by tracing
+the code, not from the model rarely choosing to try.
+
+Confirmed the tool loop engages for real on a legitimate multi-topic
+question - the audit log shows an actual model-issued call, requesting
+and receiving Matter A (which this user has access to), not just the
+initial pass. Requests involving a live tool round take noticeably
+longer, since each round is a full extra call to the model - worth
+knowing before assuming a slow response is broken rather than working.
+
+Added a first slice of audit logging: every tool call is logged with
+the caller, the requested matter, and the accepted matter, before the
+query runs - so a blocked attempt is on record even though it
+returned nothing. Enforcement and logging are two separate mechanisms
+that don't depend on each other.
+
+Added an architecture diagram and a present-tense system overview at
+the top of this README, above the day-by-day log, because that's what
+someone skimming this repo for ninety seconds before a call actually
+needs first - not a chronological reconstruction of six days of
+decisions.
