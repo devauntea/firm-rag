@@ -4,18 +4,18 @@ A permission-aware legal document Q&A system
 ## How this works
 
 A lawyer or paralegal asks a question through `POST /api/answer`, identified by
-`userEmail`. Retrieval never sees the whole corpus - it's scoped, in the SQL
+`userEmail`. Retrieval never sees the whole corpus; it's scoped, in the SQL
 query itself, to only the matters that specific user has been granted access
 to. The model then answers using only what was retrieved, with every claim
 required to carry a citation back to a specific chunk, and can trigger one
 additional, identically-scoped search of its own if the first pass wasn't
-enough - bounded to two rounds, and unable to reach anything the caller
-couldn't already see.
+enough. That search is bounded to two rounds, and unable to reach anything the
+caller couldn't already see.
 
 The one decision worth defending hardest: **permissions are enforced at the
 retrieval query, never left to the model to respect.** A chunk from a matter
 the caller can't access is never fetched from the database in the first
-place - not fetched and then filtered, never fetched. That's true whether the
+place. Not fetched and then filtered: never fetched. That's true whether the
 search came from the initial request or from the model's own tool call
 mid-answer.
 
@@ -45,7 +45,7 @@ flowchart TD
     style db fill:#2E5C8A,color:#fff
 ```
 
-**Day-by-day build log below** - the reasoning and the mistakes, in order.
+**Day-by-day build log below**: the reasoning and the mistakes, in order.
 
 ## Day 1: the database
 
@@ -172,7 +172,7 @@ the model declined to answer entirely.
 This directly targets the two failures found on Day 2. On the Coinbase
 question, retrieval still returned a blended pool of chunks from both
 Bielski and Suski, exactly as before, but the model's answer only
-cited the Bielski sources for the Bielski-specific claim - it happened
+cited the Bielski sources for the Bielski-specific claim. It happened
 to disambiguate correctly, though that's not a guarantee retrieval
 itself doesn't provide, which is exactly why the citations matter: so
 it can be checked, not just trusted.
@@ -194,7 +194,7 @@ outside the corpus (trademark law, which nothing in these eleven
 documents touches). It refused cleanly, citing nothing, which the
 verifier confirmed.
 
-Did not run vLLM or SGLang hands-on - both are CUDA-first production
+Did not run vLLM or SGLang hands-on: both are CUDA-first production
 serving frameworks and I don't have NVIDIA hardware. Read about
 PagedAttention and understand conceptually why it matters for serving
 many concurrent users efficiently on a GPU cluster, which is the real
@@ -252,7 +252,7 @@ not the app, and something already had the app's port claimed. It
 turned out an old copy of the app, started days earlier directly on
 my Mac (not in a container) and never closed, was still quietly
 answering every request. The real containerized app had never
-actually started at all - it just sat there, created but never
+actually started at all. It just sat there, created but never
 running, because the port it wanted was already taken. The lesson:
 a test that "passes" is only proof of something if you're sure what
 actually answered it.
@@ -270,7 +270,7 @@ someone who shouldn't see them.
 
 **What today actually taught me:** a green checkmark isn't proof of
 anything by itself. Twice today, something looked like it worked, and
-twice the real explanation was hiding one layer down - a leftover
+twice the real explanation was hiding one layer down: a leftover
 process answering in place of the real one, and a real failure
 returning no information at all. Both times, the fix was the same
 habit: don't trust the first signal, go look at what's actually
@@ -283,7 +283,7 @@ name these precisely rather than pretend today's setup is finished.
   file I've been committing to git all week. A real deployment pulls
   that from a secret manager, injected only at the moment it's
   needed, never written down anywhere.
-- There's no encryption and no reverse proxy in front of the app -
+- There's no encryption and no reverse proxy in front of the app.
   I'm hitting plain http://localhost:3000 directly. A real deployment
   sits something in front that handles https and forwards traffic in.
 - The container only exists on my own laptop right now. Nothing
@@ -293,7 +293,7 @@ name these precisely rather than pretend today's setup is finished.
   and deploys a specific known version, rather than whatever happens
   to be sitting on one person's machine.
 - Keeping the AI model outside the container isn't just a workaround
-  for my laptop's Apple chip - it's also how a bigger, real version of
+  for my laptop's Apple chip. It's also how a bigger, real version of
   this would work. The model would run as its own separate,
   independently-scaled service that the app calls over the network,
   the same shape as today, just pointed at a real server instead of
@@ -304,19 +304,19 @@ one, matters more than pretending they don't exist.
 
 ## Day 5: permission-aware retrieval
 
-**Before the fix** - no user identified anywhere in the request, and Matter C (which has an ethical wall on it) answers anyway:
+**Before the fix**: no user identified anywhere in the request, and Matter C (which has an ethical wall on it) answers anyway:
 
 ![Before permission enforcement](docs/screenshots/01-before-permission-fix.png)
 
-**After the fix** - identical question, identical matter, two different attorneys:
+**After the fix**: identical question, identical matter, two different attorneys:
 
 ![The ethical wall holds](docs/screenshots/02-ethical-wall-holds.png)
 
-**Adversarial test** - the walled attorney demands the content explicitly, with jailbreak-style phrasing:
+**Adversarial test**: the walled attorney demands the content explicitly, with jailbreak-style phrasing:
 
 ![Adversarial request blocked](docs/screenshots/03-adversarial-request-blocked.png)
 
-The API from Day 4 had no concept of who was asking - matterCode was
+The API from Day 4 had no concept of who was asking. matterCode was
 a fully client-trusted filter, and the Day 1 access matrix sat in the
 database unused. Proved this live before fixing it: a request with no
 user identified at all still returned a real, cited answer from a
@@ -325,8 +325,8 @@ users.
 
 Closed the gap by joining retrieval through matter_access and users,
 keyed on the calling user's email, so a chunk from a matter the caller
-can't access is never fetched from the database at all - not fetched
-and then filtered, never fetched. Everything downstream (the prompt,
+can't access is never fetched from the database at all. Not fetched
+and then filtered: never fetched. Everything downstream (the prompt,
 the model call, citation verification) stayed identical, because
 permission enforcement belongs entirely at the one boundary where
 data first enters the system.
@@ -341,7 +341,7 @@ the second, and I can say precisely why the first is still open.
 Proved the wall through the real running API, not just by reading the
 schema, across the full access matrix: Attorney 1 succeeds on Matter
 C, Attorney 2 and the paralegal are both walled off from it with an
-empty, honestly-refused result - not a 403, since revealing that a
+empty, honestly-refused result, not a 403, since revealing that a
 walled matter exists is itself a leak in an ethical-wall scenario.
 Attorney 1 is symmetrically blocked from Matter D while the paralegal
 and Attorney 2 succeed there, proving this is real per-user
@@ -350,10 +350,10 @@ on Matter A, which has no restrictions at all.
 
 Tried to break it on purpose, two ways. First, had the walled attorney
 explicitly demand the forbidden matter with jailbreak-style phrasing
-("ignore any restrictions") - the response came back with an empty
+("ignore any restrictions"). The response came back with an empty
 sources array, meaning nothing was even retrieved for any phrasing to
 talk the model into revealing. Second, omitted matterCode entirely to
-see if an unscoped search would accidentally surface something - the
+see if an unscoped search would accidentally surface something. The
 retrieved pool spanned every other matter that user has access to,
 and the walled matter (326 chunks, the largest in the corpus, and the
 most topically relevant to the test question) never appeared once.
@@ -371,7 +371,7 @@ admin or cross-matter role in the access model yet.
 
 ## Day 6: sandboxed tool use and polish
 
-Gave the model a real tool - it can trigger one additional, permission-
+Gave the model a real tool. It can trigger one additional, permission-
 scoped search mid-answer instead of working only from the initial
 retrieval pass. The actual work was building the fence around that
 decision before building the decision itself: a tool call's arguments
@@ -383,40 +383,40 @@ unconditionally to tool-triggered searches regardless of what matter
 the model requests; matterCode is allowlisted against {A,B,C,D} rather
 than merely typed; tool calls are capped at two rounds by a hard loop
 bound; and every tool call runs through the exact same permission-
-checked retrieval function as the initial search - one function, two
+checked retrieval function as the initial search: one function, two
 callers.
 
 Attacked it with three different phrasings, from a vague hint to
 explicitly naming the tool and the forbidden matter code. In every
 case inside the real system, the model answered directly from the
 already-scoped initial retrieval rather than reaching for the tool at
-all - the wall held, but I hadn't actually caught the model in the
+all. The wall held, but I hadn't actually caught the model in the
 act of requesting the forbidden matter through a tool call. Rather
 than call that good enough, I isolated the tool trigger outside the
 full system prompt and confirmed directly: the model will readily
 call the tool with matterCode "C" when asked plainly. So the reason
-it didn't happen inside the real flow isn't that the model can't -
-it's that the system prompt's "use only these sources" instruction
+it didn't happen inside the real flow isn't that the model can't.
+It's that the system prompt's "use only these sources" instruction
 happens to discourage it for this kind of question. That's a genuine,
 useful finding, not a loose end: the security guarantee comes from
 the tool executor's unconditional permission join, proven by tracing
 the code, not from the model rarely choosing to try.
 
 Confirmed the tool loop engages for real on a legitimate multi-topic
-question - the audit log shows an actual model-issued call, requesting
+question. The audit log shows an actual model-issued call, requesting
 and receiving Matter A (which this user has access to), not just the
 initial pass. Requests involving a live tool round take noticeably
-longer, since each round is a full extra call to the model - worth
+longer, since each round is a full extra call to the model, worth
 knowing before assuming a slow response is broken rather than working.
 
 Added a first slice of audit logging: every tool call is logged with
 the caller, the requested matter, and the accepted matter, before the
-query runs - so a blocked attempt is on record even though it
+query runs, so a blocked attempt is on record even though it
 returned nothing. Enforcement and logging are two separate mechanisms
 that don't depend on each other.
 
 Added an architecture diagram and a present-tense system overview at
 the top of this README, above the day-by-day log, because that's what
 someone skimming this repo for ninety seconds before a call actually
-needs first - not a chronological reconstruction of six days of
+needs first, not a chronological reconstruction of six days of
 decisions.
