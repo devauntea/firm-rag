@@ -28,6 +28,10 @@ services:
     OLLAMA_URL: http://host.docker.internal:11434
     EMBED_MODEL: nomic-embed-text
     CHAT_MODEL: qwen2.5:7b
+    # Read from .env, which is gitignored. This gate protects a publicly
+    # reachable tunnel URL, so the value must never be committed.
+    DEMO_USER: ${DEMO_USER}
+    DEMO_PASSWORD: ${DEMO_PASSWORD}
   extra_hosts:
     - "host.docker.internal:host-gateway"
   depends_on:
