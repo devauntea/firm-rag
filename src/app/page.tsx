@@ -1,10 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type Source = { n: number; filename: string; content: string }
 type CitationCheck = { citedCount: number; invalid: number[]; unused: number[] }
 type AnswerResponse = { answer: string; sources: Source[]; citationCheck: CitationCheck }
+
+type AccessData = {
+  users: { email: string; display_name: string; role: string }[]
+  matters: { code: string; name: string; practice: string }[]
+  documents: { matter_code: string; filename: string }[]
+  access: { email: string; matter_code: string }[]
+}
 
 const USERS = [
   { email: 'attorney1@firmly.test', name: 'Dana Reyes', role: 'Attorney' },
@@ -47,6 +54,34 @@ export default function Home() {
   const [result, setResult] = useState<AnswerResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openSource, setOpenSource] = useState<number | null>(null)
+
+  const [showAccess, setShowAccess] = useState(false)
+  const [accessData, setAccessData] = useState<AccessData | null>(null)
+  const [accessError, setAccessError] = useState<string | null>(null)
+
+  // Close the permissions dialog on Escape.
+  useEffect(() => {
+    if (!showAccess) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowAccess(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showAccess])
+
+  async function openAccess() {
+    setShowAccess(true)
+    if (accessData) return
+    setAccessError(null)
+    try {
+      const res = await fetch('/api/access')
+      const data = await res.json()
+      if (!res.ok) setAccessError(data.error ?? 'Could not load permissions.')
+      else setAccessData(data)
+    } catch {
+      setAccessError('Could not reach the server.')
+    }
+  }
 
   async function ask(e: React.FormEvent) {
     e.preventDefault()
@@ -119,10 +154,19 @@ export default function Home() {
             className="bg-surface border border-rule p-6 sm:p-8"
           >
             <div className="grid gap-5 sm:grid-cols-2">
-              <label className="block">
-                <span className="block text-xs uppercase text-ink-muted mb-2" style={{ letterSpacing: '0.12em' }}>
-                  Signed in as
-                </span>
+              <div>
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <span className="text-xs uppercase text-ink-muted" style={{ letterSpacing: '0.12em' }}>
+                    Signed in as
+                  </span>
+                  <button
+                    type="button"
+                    onClick={openAccess}
+                    className="text-xs text-accent underline underline-offset-2 hover:text-accent-hover"
+                  >
+                    View access permissions
+                  </button>
+                </div>
                 <select
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
@@ -134,7 +178,7 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
 
               <label className="block">
                 <span className="block text-xs uppercase text-ink-muted mb-2" style={{ letterSpacing: '0.12em' }}>
@@ -305,6 +349,130 @@ export default function Home() {
           see, and every claim is checked against a real source before it is shown.
         </div>
       </footer>
+
+      {showAccess && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8"
+          onClick={() => setShowAccess(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Access permissions"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-3xl border border-rule bg-surface"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-rule px-6 py-5">
+              <div>
+                <h2 className="font-[family-name:var(--font-display)] text-2xl">
+                  Who can see what
+                </h2>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Live from the database. This is why some questions come back empty.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAccess(false)}
+                aria-label="Close"
+                className="shrink-0 border border-rule px-3 py-1.5 text-sm text-ink-muted hover:border-accent hover:text-accent"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              {accessError && <p className="text-accent">{accessError}</p>}
+
+              {!accessData && !accessError && (
+                <p className="text-ink-muted">Loading permissions…</p>
+              )}
+
+              {accessData && (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr>
+                          <th className="border-b border-rule px-2 py-2 text-left font-normal text-xs uppercase text-ink-muted" style={{ letterSpacing: '0.1em' }}>
+                            Matter
+                          </th>
+                          {accessData.users.map((u) => (
+                            <th
+                              key={u.email}
+                              className="border-b border-rule px-2 py-2 text-center font-normal text-xs uppercase text-ink-muted"
+                              style={{ letterSpacing: '0.1em' }}
+                            >
+                              {u.display_name.split(' ')[0]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {accessData.matters.map((m) => {
+                          const docs = accessData.documents.filter(
+                            (d) => d.matter_code === m.code,
+                          )
+                          return (
+                            <tr key={m.code} className="align-top">
+                              <td className="border-b border-rule px-2 py-3">
+                                <span className="text-ink">
+                                  {m.code} · {m.name}
+                                </span>
+                                <ul className="mt-1 space-y-0.5">
+                                  {docs.map((d) => (
+                                    <li key={d.filename} className="text-xs text-ink-muted">
+                                      {prettyFilename(d.filename)}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </td>
+                              {accessData.users.map((u) => {
+                                const allowed = accessData.access.some(
+                                  (a) => a.email === u.email && a.matter_code === m.code,
+                                )
+                                return (
+                                  <td
+                                    key={u.email}
+                                    className="border-b border-rule px-2 py-3 text-center"
+                                  >
+                                    {allowed ? (
+                                      <span className="text-ink" title="Has access">
+                                        {docs.length} doc{docs.length === 1 ? '' : 's'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-accent" title="No access">
+                                        blocked
+                                      </span>
+                                    )}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-5 border-t border-rule pt-4 text-sm text-ink-muted">
+                    <p>
+                      <strong className="text-ink">Matter C is an ethical wall.</strong>{' '}
+                      James is blocked from it even though he is an attorney of equal
+                      seniority to Dana, because access is granted per person per matter,
+                      not by job title.
+                    </p>
+                    <p className="mt-2">
+                      When an account has no access, nothing from that matter is retrieved
+                      from the database at all. It is not fetched and then hidden.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
