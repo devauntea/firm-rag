@@ -1,6 +1,23 @@
 # firm-RAG
 A permission-aware legal document Q&A system
 
+## Try it
+
+**https://edit-system-prints-animal.trycloudflare.com**
+Username `firmRAG`, password `passfirm`
+
+A web interface for people who would rather not use a terminal. Pick which
+account you are signed in as, optionally narrow to one matter, and ask a
+question. Answers come back with the sources they were drawn from, and each
+source is marked as either cited or not cited in the answer. The "View access
+permissions" link shows, live from the database, which documents each account
+can reach, which is the fastest way to see why some questions come back empty.
+
+Two things to know before clicking. Answers take roughly ten to thirty seconds,
+because the model runs locally rather than on a hosted API. And the link is a
+tunnel to a laptop, so it only responds while that machine is awake and the
+tunnel is running. If it does not load, it is switched off rather than broken.
+
 ## How this works
 
 A lawyer or paralegal asks a question through `POST /api/answer`, identified by
