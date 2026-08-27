@@ -4,7 +4,9 @@ A permission-aware legal document Q&A system
 ## Try it
 
 **https://edit-system-prints-animal.trycloudflare.com**
-Username `firmRAG`, password `passfirm`
+
+The demo is password protected. Contact me for credentials and I will send
+them along with a window when the link will be live.
 
 A web interface for people who would rather not use a terminal. Pick which
 account you are signed in as, optionally narrow to one matter, and ask a
