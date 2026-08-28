@@ -3,10 +3,10 @@ A permission-aware legal document Q&A system
 
 ## Try it
 
-There is a live web demo, but it runs on a laptop rather than a hosted server,
-so the link is generated fresh each time it is switched on. Contact me and I
-will send you a current link and credentials along with a window when it will
-be up.
+**https://tassel-statute-anchovy.ngrok-free.dev**
+
+The demo is password protected. Contact me for credentials and a window when
+the link will be live.
 
 A web interface for people who would rather not use a terminal. Pick which
 account you are signed in as, optionally narrow to one matter, and ask a
