@@ -72,15 +72,21 @@ export async function answerQuestion(question: string, userEmail: string, matter
         const call = result.toolCalls[0]
         const toolSources = await executeSearchTool(call.function.arguments, userEmail)
         
-        messages.push({ role: 'assistant', content: result.content, tool_calls: result.toolCalls })
-        messages.push({ role: 'tool', content: JSON.stringify(toolSources) })
+        // Only the first call is executed, so only the first is echoed back:
+        // OpenAI-style APIs reject a turn whose tool_calls lack matching results.
+        messages.push({ role: 'assistant', content: result.content, tool_calls: [call] })
+        messages.push({ role: 'tool', content: JSON.stringify(toolSources), tool_call_id: call.id })
         sources = toolSources.length > 0 ? toolSources : sources
 
         result = await chat(messages, [SEARCH_TOOL])
     }
     
-    const citationCheck = verifyCitations(result.content, sources)
-    return { answer: result.content, sources, citationCheck }
+    // If the model is still asking for searches when the round cap hits, it
+    // never wrote an answer. Say so in the prompt's own refusal wording rather
+    // than returning an empty string the UI would render as nothing.
+    const answer = result.content?.trim() || 'The provided sources do not address this.'
+    const citationCheck = verifyCitations(answer, sources)
+    return { answer, sources, citationCheck }
 }
 
 
