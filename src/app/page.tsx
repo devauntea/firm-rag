@@ -128,7 +128,7 @@ export default function Home() {
             className="text-xs uppercase"
             style={{ letterSpacing: '0.22em' }}
           >
-            Law Offices of Juliet Cohen, P.C.
+            Firmly &amp; Associates LLP · Fictional demo firm
           </p>
         </div>
       </header>
