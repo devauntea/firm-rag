@@ -5,6 +5,11 @@ A permission-aware legal document Q&A system
 
 **https://firm-rag.vercel.app**
 
+The site is set up as the document system of Firmly & Associates LLP, a
+fictional firm made up for this demo. The documents are real public court
+filings and SEC exhibits; the firm, its people, and its matter assignments are
+invented.
+
 Public, no login. Pick which account you are signed in as, optionally narrow to
 one matter, and ask a question. Answers come back with the sources they were
 drawn from, and each source is marked as either cited or not cited in the
