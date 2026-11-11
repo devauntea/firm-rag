@@ -28,8 +28,8 @@ const MATTERS = [
 ]
 
 const EXAMPLES = [
-  'What is the effective date of the First Amendment to the Employment Agreement?',
   "What did the Court hold about Coinbase's arbitration argument?",
+  'What did the Texas Supreme Court hold in the SEIU case?',
   'What did the EPA argue in Ohio v. EPA?',
 ]
 
@@ -235,8 +235,8 @@ export default function Home() {
 
             {loading && (
               <p className="mt-4 text-sm text-ink-muted">
-                Searching your documents and drafting an answer. This runs on a local
-                model and can take up to a minute.
+                Searching your documents and drafting an answer. This usually takes a
+                few seconds, longer if the model decides to run a second search.
               </p>
             )}
           </form>
